@@ -96,6 +96,19 @@ func NewWithLLMResponse(response func() []byte) (*Mock, string) {
 			_, _ = w.Write(response.body)
 		})
 	}
+	mux.HandleFunc("GET /api/agent/session/current/messages", func(w http.ResponseWriter, r *http.Request) {
+		m.record(r)
+		m.mu.Lock()
+		response, ok := m.agentResponses[r.Method+" "+r.URL.RequestURI()]
+		m.mu.Unlock()
+		if !ok {
+			http.Error(w, "current session response is not configured", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(response.status)
+		_, _ = w.Write(response.body)
+	})
 
 	mux.HandleFunc("POST /api/agent/proxy/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		m.record(r)
