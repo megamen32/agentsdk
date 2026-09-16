@@ -109,6 +109,18 @@ func NewWithLLMResponse(response func() []byte) (*Mock, string) {
 		w.WriteHeader(response.status)
 		_, _ = w.Write(response.body)
 	})
+	mux.HandleFunc("POST /api/agent/model-preference", func(w http.ResponseWriter, r *http.Request) {
+		m.record(r)
+		var request struct {
+			Model string `json:"model"`
+		}
+		if err := strictJSON(r.Body, &request); err != nil || request.Model == "" {
+			http.Error(w, "invalid model preference request", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"model": request.Model, "providerId": "mock-provider"})
+	})
 
 	mux.HandleFunc("POST /api/agent/proxy/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		m.record(r)
