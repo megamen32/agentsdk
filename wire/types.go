@@ -207,6 +207,7 @@ func displayExtension(mimeType, partType string) string {
 }
 
 type PrintRequest struct {
+	IdempotencyKey string        `json:"idempotencyKey,omitempty"`
 	Parts          []DisplayPart `json:"parts"`
 	Topic          string        `json:"topic,omitempty"`
 	ConversationID string        `json:"conversationId,omitempty"`

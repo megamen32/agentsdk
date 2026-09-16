@@ -81,6 +81,7 @@ func NewWithLLMResponse(response func() []byte) (*Mock, string) {
 		"GET /api/agent/agents/{definition}/runs/{id}",
 		"DELETE /api/agent/agents/{definition}/runs/{id}",
 		"POST /api/agent/agents/{definition}/sessions/{session}/continue",
+		"POST /api/agent/session/person/messages",
 	} {
 		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			m.record(r)

@@ -135,7 +135,7 @@ func (c *airlockClient) doJSONWithHeaders(ctx context.Context, method, path stri
 				}
 			}
 		}
-		return fmt.Errorf("%s %s: status %d: %s", method, path, resp.StatusCode, string(b))
+		return &APIError{Method: method, Path: path, StatusCode: resp.StatusCode, Body: string(b)}
 	}
 
 	if result != nil && resp.ContentLength != 0 {
