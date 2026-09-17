@@ -123,6 +123,12 @@ func Run(ctx context.Context, in Input) (result *Result, err error) {
 	capture := tool.Set{}
 	for name, t := range set {
 		t.Execute = nil
+		if name == "complete" {
+			t.InputSchema, err = completionModelSchema(t.InputSchema)
+			if err != nil {
+				return nil, fmt.Errorf("render completion schema: %w", err)
+			}
+		}
 		capture[name] = t
 	}
 	for {

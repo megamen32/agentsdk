@@ -123,6 +123,46 @@ func decode(input json.RawMessage, dst any) error {
 	return nil
 }
 
+// completionModelSchema exposes concrete top-level parameter types to model
+// providers that cannot render a root oneOf. This is presentation only: the
+// tool set used by dispatch retains its exact discriminated-union validator.
+func completionModelSchema(strict json.RawMessage) (json.RawMessage, error) {
+	var root map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(strict))
+	decoder.UseNumber()
+	if err := decoder.Decode(&root); err != nil {
+		return nil, err
+	}
+	defs, ok := root["$defs"].(map[string]any)
+	if !ok {
+		return nil, errors.New("completion schema lacks typed output definitions")
+	}
+	output, ok := defs["agentOutput"]
+	if !ok {
+		return nil, errors.New("completion schema lacks typed output")
+	}
+	presentation := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"kind":     map[string]any{"type": "string", "enum": []string{"output", "needs_input"}, "description": "Use output with the output object; use needs_input with a question."},
+			"output":   output,
+			"question": map[string]any{"type": "string", "description": "Only for kind needs_input. Omit for kind output."},
+		},
+		"required": []string{"kind"}, "additionalProperties": false,
+	}
+	// Recursive outputs retain their already-relocated reference namespace.
+	// Simple inline outputs need no definitions, avoiding unnecessary provider
+	// schema features on the common path.
+	encodedOutput, err := json.Marshal(output)
+	if err != nil {
+		return nil, err
+	}
+	if bytes.Contains(encodedOutput, []byte(`"$ref"`)) {
+		presentation["$defs"] = defs
+	}
+	return json.Marshal(presentation)
+}
+
 func dispatch(ctx context.Context, in Input, set tool.Set, spawns map[string]string, call Call) (tool.Result, *wire.AgentReply, error) {
 	t, ok := set[call.Name]
 	if !ok {
