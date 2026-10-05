@@ -81,6 +81,7 @@ func NewWithLLMResponse(response func() []byte) (*Mock, string) {
 		"GET /api/agent/agents/{definition}/runs/{id}",
 		"DELETE /api/agent/agents/{definition}/runs/{id}",
 		"POST /api/agent/agents/{definition}/sessions/{session}/continue",
+		"POST /api/agent/session/person/messages",
 	} {
 		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			m.record(r)
@@ -96,6 +97,31 @@ func NewWithLLMResponse(response func() []byte) (*Mock, string) {
 			_, _ = w.Write(response.body)
 		})
 	}
+	mux.HandleFunc("GET /api/agent/session/current/messages", func(w http.ResponseWriter, r *http.Request) {
+		m.record(r)
+		m.mu.Lock()
+		response, ok := m.agentResponses[r.Method+" "+r.URL.RequestURI()]
+		m.mu.Unlock()
+		if !ok {
+			http.Error(w, "current session response is not configured", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(response.status)
+		_, _ = w.Write(response.body)
+	})
+	mux.HandleFunc("POST /api/agent/model-preference", func(w http.ResponseWriter, r *http.Request) {
+		m.record(r)
+		var request struct {
+			Model string `json:"model"`
+		}
+		if err := strictJSON(r.Body, &request); err != nil || request.Model == "" {
+			http.Error(w, "invalid model preference request", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"model": request.Model, "providerId": "mock-provider"})
+	})
 
 	mux.HandleFunc("POST /api/agent/proxy/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		m.record(r)

@@ -3,6 +3,7 @@ package agentsdk
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -29,6 +30,31 @@ type ListMembersOptions struct {
 type MemberPage struct {
 	Members    []Member
 	NextCursor string
+}
+
+// AgentMember is the compatibility view used by deployed pre-0.7 apps. New
+// code should prefer MemberPage; this shape intentionally includes no email.
+type AgentMember struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Role Access `json:"role"`
+}
+
+// ListAgentMembers returns the flat compatibility roster for deployed apps.
+func (a *Agent) ListAgentMembers(ctx context.Context) ([]AgentMember, error) {
+	if !a.runtimeAvailable() {
+		return nil, a.runtimeUnavailable("ListAgentMembers")
+	}
+	var response struct {
+		Members []AgentMember `json:"members"`
+	}
+	if err := a.client.doJSON(ctx, http.MethodGet, "/api/agent/members", nil, &response); err != nil {
+		return nil, err
+	}
+	if response.Members == nil {
+		return []AgentMember{}, nil
+	}
+	return response.Members, nil
 }
 
 // ListMembers returns a page of the current app's members with actual direct or
